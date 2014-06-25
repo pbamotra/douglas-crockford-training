@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Douglas Crockford training</title>
+    <script src="//cdn.jsdelivr.net/livejs/4/live.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/json2/20130526/json2.min.js"></script>
+</head>
+<body>
+    <pre>
+        <script type="application/javascript">
+            'use strict';
+            function log(arg) {
+                document.writeln(arg);
+            }
+            function identity(x) {
+                return x;
+            }
+            log(identity(3));
+
+            // Exercise 1 : Three functions
+            function add(a, b) {
+                return a + b;
+            }
+            function sub(a, b) {
+                return a - b;
+            }
+            function mul(a, b) {
+                return a * b;
+            }
+            log(add(3, 4));
+            log(sub(3, 4));
+            log(mul(3, 4));
+
+            // Exercise 2 : Function that return function
+            function identityf(arg) {
+                return function() {
+                    return arg;
+                }
+            }
+            var fun = identityf(35);
+            log(fun());
+
+            // Exercise 3 : Double invocation
+            function addf(x) {
+                return function(y) {
+                    return x + y;
+                }
+            }
+            log(addf(3)(4));
+
+            // Exercise 4 : Function as args
+            function liftf(fun) {
+                return function(x) {
+                    return function(y) {
+                        return fun(x, y);
+                    }
+                }
+            }
+            log(liftf(add)(3)(4));
+            var $addf = liftf(add);
+            log($addf(35)(45));
+            log(liftf(mul)(10)(5));
+
+            // Exercise 5 : Function + args as args
+            // Haskell curry
+            function curry(fun, x) {
+                return function(y) {
+                    return fun(x, y);
+                }
+            }
+            log(curry(mul, 5)(6));
+            var add3 = curry(add, 3);
+            log(add3(4));
+
+            function curry2(fun, x) {
+                return liftf(fun)(x);
+            }
+            log(curry2(mul, 5)(6));
+
+            // Exercise 6 : Increment without new function
+            var inc = curry(add, 1);
+            log(inc(2));
+            var inc2 = liftf(add)(1);
+            log(inc2(45));
+            var inc3 = addf(1);
+            log(inc3(49));
+
+            log(inc(inc(2)));
+            log(inc2(inc2(12)));
+            log(inc3(inc3(34)));
+            log(inc(inc2(inc3(90))));
+
+            // Exercise 7 : binary to unary
+            function twice(fun) {
+                return function(x) {
+                    return fun(x, x);
+                }
+            }
+
+            log(twice(add)(11));
+            log(twice(mul)(11));
+
+            // Exercise 8 : arg reverse
+            function reverse(fun) {
+                return function(x, y) {
+                    return fun(y, x);
+                }
+            }
+
+            log(reverse(sub)(3, 2));
+
+            // Exercise 9 : composition
+            function composeu(ufun, vfun) {
+                return function(x) {
+                    return vfun(ufun(x));
+                }
+            }
+
+            log(composeu(twice(add), twice(mul))(5));
+
+            // Exercise 10 : binary composition {
+            function composeb(ufun, vfun) {
+                return function(x, y, z) {
+                    //return liftf(vfun)(liftf(ufun)(x)(y))(z);
+                    return vfun(ufun(x, y), z);
+                }
+            }
+
+            log(composeb(add, mul)(2, 3, 7));
+
+            // Exercise 11 : make function callable only once
+            function once(fun) {
+                var calls_remaining = true;
+                    return function (x, y) {
+                        if(calls_remaining) {
+                            calls_remaining = false;
+                            return fun(x, y);
+                        }
+                    }
+            }
+
+            var once_add = once(add);
+            log(once_add(1, 2));
+            log(once_add(3, 4));
+
+            var once_mul = once(mul);
+            log(once_mul(2, 3));
+            log(once_mul(3, 4));
+
+            // Exercise 12 : Generator fromTo
+            function fromTo(start, end) {
+                var return_val = undefined;
+                return function() {
+                    return_val = start++;
+                    //start = start + 1;
+                    return return_val < end ? return_val : undefined;
+                }
+            }
+
+            var index = fromTo(0, 3);
+            log(index());
+            log(index());
+            log(index());
+            log(index());
+
+            // Exercise 13 : array + generator
+            function element(arr, gen) {
+               /* var k = 0, j = 0;
+                var i = undefined;*/
+                // The right method
+                if(gen === undefined) {
+                    gen = fromTo(0, arr.length);
+                }
+                //gen = gen || fromTo(0, arr.length);
+                /*if(gen) {
+                    var indices = [];
+                    while(true) {
+                        i = gen();
+                        if(!i) {
+                            break;
+                        } else {
+                            indices.push(i);
+                        }
+                    }
+                    return function() {
+                        return arr[indices[k++]];
+                    }
+                } else {
+                    return function() {
+                        return arr[j++];
+                    }
+                }*/
+                return function() {
+                    return arr[gen()];
+                }
+            }
+
+            var ele = element(['a', 'b', 'c' ,'d'], fromTo(1, 3));
+            log(ele());
+            log(ele());
+            log(ele());
+
+            // Exercise 14 : collect
+            function collect(gen, array) {
+                var return_val;
+                return function() {
+                    return_val = gen();
+                    if(return_val !== undefined) {
+                        array.push(return_val);
+                    }
+                    return return_val;
+                }
+            }
+
+            var array = [];
+            var col = collect(fromTo(5, 7), array);
+            log(col());
+            log(col());
+            log(col());
+            log(array);
+
+            // Exercise 15 : Predicate filter
+            function filter(gen, predicate) {
+                return function() {
+                    var value = gen();
+                    while(value !== undefined && predicate(value) === false) {
+                        value = gen();
+                    }
+                    return value;
+                }
+            }
+
+            var fil = filter(fromTo(0, 10), function third(value) {
+                return (value % 3) === 0;
+            });
+
+            log(fil());
+            log(fil());
+            log(fil());
+
+            // Exercise 16 : generator combine
+            function concat(ugen, vgen) {
+                return function () {
+                    var a = ugen();
+                    if(a !== undefined) {
+                        return a;
+                    } else {
+                        return vgen();
+                    }
+                }
+            }
+
+            var con = concat(fromTo(0, 3), fromTo(0, 2));
+            log(con());
+            log(con());
+            log(con());
+            log(con());
+            log(con());
+            log(con());
+
+            // Exercise 17 : Counter next, prev
+            function counter(init_val) {
+                var count = init_val;
+                return {
+                    next : function() {
+                        count = count + 1;
+                        return count;
+                    },
+
+                    prev : function() {
+                        count = count - 1;
+                        return count;
+                    }
+                };
+            }
+
+            var object = counter(10), next = object.next, prev = object.prev;
+            log(next());
+            log(prev());
+            log(prev());
+            log(next());
+
+            // Exercise 18 : Revocable
+            function revocable(unary) {
+                var invoke, revoke, boo;
+                return {
+                  invoke : function(x) {
+                      if(unary !== undefined) {
+                          return unary(x);
+                      }
+                  },
+                  revoke : function() {
+                      unary = undefined;
+                  }
+                };
+            }
+
+            var rev = revocable(identity), invoke = rev.invoke;
+            log(invoke(7));
+            rev.revoke();
+            log(invoke(8));
+
+            // Exercise 19 : Unique symbol generator
+            function gensymf(symbol) {
+                var counter = 0;
+                return function() {
+                    counter += 1;
+                    return symbol + String(counter);
+                }
+            }
+
+            var geng = gensymf("G"), genh = gensymf("H");
+            log(geng());
+            log(genh());
+            log(geng());
+            log(genh());
+            log(genh());
+            log(geng());
+
+            // Exercise 20 : Factory of Factory
+            function gensymff(unary, seed) {
+                return function(symbol) {
+                    var counter = seed;
+                    return function() {
+                        counter = unary(counter);
+                        return symbol + String(counter);
+                    }
+                }
+            }
+
+            var $gensymf = gensymff(inc, 0), $geng = $gensymf("G"), $genh = $gensymf("H");
+            log($geng());
+            log($genh());
+            log($geng());
+            log($genh());
+
+            // Exercise 21 : Fibonacci Series
+            function fibonaccif(a, b) {
+                return function() {
+                    var temp = a;
+                    a = b;
+                    b += temp;
+                    return temp;
+                }
+            }
+
+            var fib = fibonaccif(0, 1);
+            log(fib());
+            log(fib());
+            log(fib());
+            log(fib());
+            log(fib());
+            log(fib());
+
+            // Exercise 22 : m function
+            function m(value, source) {
+                return {
+                    value : value,
+                    source: source || String(value)
+                }
+            }
+
+            // Exercise 23 : addm
+            function addm(um, vm) {
+                return m(
+                    um.value + vm.value,
+                    "("  + um.source + "+" + vm.source + ")"
+                );
+            }
+
+            log(JSON.stringify(addm(m(3), m(4))));
+            log(JSON.stringify(addm(m(1), m(Math.PI, "pi"))));
+
+            // Exercise 24 : liftm
+            function liftm(binary, symbol) {
+                return function(um, vm) {
+                    return m(
+                      binary(um.value, vm.value),
+                      "("  + um.source + symbol + vm.source + ")"
+                    );
+                }
+            }
+
+            var $addm = liftm(add, "+");
+            log(JSON.stringify(addm(m(3), m(4))));
+            log(JSON.stringify(liftm(mul, "*")(m(3), m(4))));
+
+            // Exercise 24 : liftm modifief to thake both m objects and numbers
+            function $liftm(binary, symbol) {
+                return function(um, vm) {
+                    if(typeof um === 'number') {
+                        um = m(um);
+                    }
+                    if(typeof vm === 'number') {
+                        vm = m(vm);
+                    }
+                    return m(
+                            binary(um.value, vm.value),
+                            "("  + um.source + symbol + vm.source + ")"
+                    );
+                }
+            }
+
+            var $$addm = $liftm(add, "+");
+            log(JSON.stringify($$addm(3, 4)));
+
+            // Exercise 25 : simple expression evaluation
+            function exp(arg) {
+                if (Array.isArray(arg)) {
+                    return arg[0](arg[1], arg[2]);
+                } else {
+                    return arg;
+                }
+            }
+
+            var sae = [mul, 3, 3];
+            log(exp(sae));
+            log(exp(42));
+
+            // Exercise 26 : nested simple expressions
+            function $exp(arg) {
+                return Array.isArray(arg) ?
+                        arg[0]($exp(arg[1]), $exp(arg[2])) : arg;
+            }
+
+            var square = twice(mul);
+            var nae = [
+                        Math.sqrt,
+                        [add, [square, 3], [square, 4]]
+                        ];
+            log($exp(nae));
+
+            // Exercise 27 : Homework : multi-invocation until empty brackets
+            function $addg(x){
+                var total = 0;
+                if( x !== undefined) {
+                    total += x;
+                    return function g(y){
+                        if(y === undefined) {
+                            return total;
+                        } else {
+                            total += y;
+                            return g;
+                        }
+                    }
+                }
+            }
+            log($addg(2)(3)(4)(5)());
+
+            function addg(first) {
+                function more(next) {
+                    if(next === undefined) {
+                        return first;
+                    }
+                    first += next;
+                    return more;
+                }
+                if(first !== undefined) {
+                    return more;
+                }
+            }
+
+            // Exercise 28 : liftg
+
+            function liftg(fun) {
+                return function(first) {
+                    function more(next) {
+                        if(next === undefined) {
+                            return first;
+                        }
+                        first = fun(first, next);
+                        return more;
+                    }
+                    if(first !== undefined) {
+                        return more;
+                    }
+                }
+            }
+
+            log(liftg(mul)());
+            log(liftg(mul)(3)());
+            log(liftg(mul)(3)(4)(0)());
+            log(liftg(mul)(1)(2)(4)(8)());
+
+            // Exercise 29 : arrayg
+
+            function arrayg(first) {
+                var result = [];
+                function more(next) {
+                    result.push(first);
+                    if(next === undefined) {
+                        return result;
+                    }
+                    first = next;
+                    return more;
+                }
+                if(first !== undefined) {
+                    return more;
+                }
+                return result;
+            }
+
+            log(arrayg());
+            log(arrayg(2)());
+            log(arrayg(2)(3)(4)(5)());
+
+            // Exercise 30 : Unary callback
+            function unaryc(unary) {
+                return function(callback, arg) {
+                    return callback(unary(arg));
+                }
+            }
+
+            var sqrtc = unaryc(Math.sqrt);
+            //sqrtc(alert, 81);
+
+
+        </script>
+    </pre>
+</body>
+</html>
